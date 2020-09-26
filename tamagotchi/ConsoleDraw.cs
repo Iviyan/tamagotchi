@@ -45,6 +45,7 @@ namespace tamagotchi
                 if (!(Console.CursorLeft < start_x + src.Width)) Console.CursorTop++;
                 
             }
+            Console.ForegroundColor = ConsoleColor.White;
         }
     }
 }
