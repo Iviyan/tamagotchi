@@ -46,7 +46,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CloseEvent.cs" />
+    <Compile Include="Avatars.cs" />
+    <Compile Include="ConsoleAPI.cs" />
     <Compile Include="ConsoleDraw.cs" />
     <Compile Include="ConsoleText.cs" />
     <Compile Include="helper.cs" />
@@ -57,7 +58,6 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="QuickEditMode.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

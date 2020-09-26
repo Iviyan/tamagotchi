@@ -33,6 +33,7 @@ namespace tamagotchi
         public static void ConsoleWriteImage(Bitmap src, int start_y = -1, int start_x = 0)
         {
             if (start_y >= 0) Console.CursorTop = start_y;
+            if (start_x < 0) start_x = 0;
             for (int i = 0; i < src.Height; i++)
             {
                 Console.CursorLeft = start_x;
