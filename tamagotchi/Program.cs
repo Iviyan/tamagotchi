@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using tamagotchi.Properties;
 using static tamagotchi.ConsoleAPI;
 using static tamagotchi.Avatars;
+using System.ComponentModel;
+using System.Diagnostics;
 
 namespace tamagotchi
 {
@@ -28,11 +30,29 @@ namespace tamagotchi
 
         static int Wheight = 120;
         static int Wwidth = 30;
-        static int saveConsoleMode;
 
+        static ConsoleText balanceBar;
         static ConsoleText healthBar;
         static ConsoleText foodBar;
-        
+        static ConsoleText joyBar;
+        static ConsoleText fatigueBar;
+
+        static ConsoleRadioGroup actions;
+
+        public enum Actions
+        {
+            [Description("Покормить")]
+            Feed = 1,
+            [Description("Поработать")]
+            Work,
+            [Description("Поиграть")]
+            Play,
+            [Description("Отдохнуть")]
+            Relax,
+            [Description("Вылечить")]
+            Cure
+        }
+
         public static int getAvatarState(int health_ = -1)
         {
             if (health_ == -1) health_ = Health;
@@ -48,18 +68,19 @@ namespace tamagotchi
         public static void drawAvatar()
         {
             //Console.Title = $"{Console.WindowWidth} x {Console.WindowHeight}";
-            ConsoleDraw.ConsoleWriteImage(avatar.states[avatarState-1], 1, Console.WindowWidth - 31);
+            ConsoleDraw.ConsoleWriteImage(avatar.states[avatarState - 1], 1, Console.WindowWidth - 31);
 
         }
         public static void loop()
         {
-            for (;;)
+            for (; ; )
             {
                 bool WResized = Console.WindowWidth != Wwidth || Console.WindowHeight != Console.WindowHeight;
                 if (WResized)
                 {
                     Console.Clear();
                     healthBar.SetArea(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19);
+                    actions.SetArea(1, 3, width: Console.WindowWidth - 40);
                 }
                 //Console.WriteLine(Console.WindowWidth);
                 Health--;
@@ -79,28 +100,49 @@ namespace tamagotchi
 
                 Thread.Sleep(200);
             }
+
         }
 
         static void Main(string[] args)
         {
             //GetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), out saveConsoleMode);
             //helper.mb(saveConsoleMode);
+            //helper.mb(Actions.Cure.GetAttributeOfType<DescriptionAttribute>().Description);
+
             SetQuickEdit(false);
 
             avatar = AvatarSelection();
 
-            Thread back = new Thread(new ThreadStart(loop)); 
+            Thread back = new Thread(new ThreadStart(loop));
 
-            healthBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, "Balance: 100$", center: false);
-            healthBar = new ConsoleText(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19, "HP: 100 / 100", center: true);
-            foodBar = new ConsoleText(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20, "Food: 100 / 100", center: true);
+            balanceBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, "Balance: 100$", center: false);
+            healthBar = new ConsoleText(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19, "Здоровье: 100 / 100", center: true);
+            foodBar = new ConsoleText(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20, "Сытость: 100 / 100", center: true);
+            joyBar = new ConsoleText(Console.WindowWidth - 30, 21, Console.WindowWidth - 1, 21, "Радость: 100 / 100", center: true);
+            fatigueBar = new ConsoleText(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22, "Усталость: 100 / 100", center: true);
 
-            //new ConsoleText(10, 10, 14, 13, "  v  > 2 <  ^  ", center: true);
+            actions = new ConsoleRadioGroup(
+                1, 3,
+                new List<string>(
+                    Enum.GetValues(typeof(Actions))
+                        .Cast<Actions>()
+                        .Select(v => v.Description())
+                        .ToList()
+                ),
+                interval: 1,
+                width: Console.WindowWidth - 40
+            );
+
 
             back.Start();
 
-            ConsoleEventHandler += new ConsoleEventDelegate(ConsoleEventCallback);
+            ConsoleEventHandler += new ConsoleEventDelegate(ConsoleEventCallback); //Обработка закрытия
             SetConsoleCtrlHandler(ConsoleEventHandler, true);
+
+            //helper.mb();
+            //Thread.Sleep(1000);
+            actions.Choice();
+
             Console.ReadLine();
         }
 
@@ -121,17 +163,17 @@ namespace tamagotchi
                 Console.Clear();
                 ConsoleText title = new ConsoleText(0, 1, Console.WindowWidth, 1, "Выберите персонажа:", center: true);
                 drawAvatar();
-                ConsoleText hint1 = new ConsoleText(0, 6+16+2, Console.WindowWidth, 6+16+2, "<-- | -->", center: true);
-                ConsoleText hint2 = new ConsoleText(0, 6+16+3, Console.WindowWidth, 6+16+3, "Enter", center: true);
+                ConsoleText hint1 = new ConsoleText(0, 6 + 16 + 2, Console.WindowWidth, 6 + 16 + 2, "<-- | -->", center: true);
+                ConsoleText hint2 = new ConsoleText(0, 6 + 16 + 3, Console.WindowWidth, 6 + 16 + 3, "Enter", center: true);
             }
             draw();
 
             Thread resizeWatcher = new Thread(new ThreadStart(() =>
             {
-                for (;;)
+                for (; ; )
                 {
                     if (Console.WindowWidth != Wwidth || Console.WindowHeight != Console.WindowHeight)
-                    { 
+                    {
                         draw();
                         Wheight = Console.WindowHeight;
                         Wwidth = Console.WindowWidth;
@@ -170,7 +212,8 @@ namespace tamagotchi
                     {
                         //SetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), saveConsoleMode);
                         //helper.mb("closing...");
-                    } return false;
+                    }
+                    return false;
                 default:
                     return false;
             }

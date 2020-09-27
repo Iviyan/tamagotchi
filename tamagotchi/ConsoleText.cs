@@ -53,10 +53,13 @@ namespace tamagotchi
                 }
                 text_ += helper.mul(" ", length - text_.Length);
             }
-            for (int h = 0; h < height; h++)
+            lock (G.consoleLock)
             {
-                Console.SetCursorPosition(p1.X, p1.Y + h); 
-                Console.Write(text_.Substring(width * h, width));
+                for (int h = 0; h < height; h++)
+                {
+                    Console.SetCursorPosition(p1.X, p1.Y + h);
+                    Console.Write(text_.Substring(width * h, width));
+                }
             }
         }
 

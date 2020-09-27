@@ -32,21 +32,24 @@ namespace tamagotchi
 
         public static void ConsoleWriteImage(Bitmap src, int start_y = -1, int start_x = 0)
         {
-            if (start_y >= 0) Console.CursorTop = start_y;
-            if (start_x < 0) start_x = 0;
-            for (int i = 0; i < src.Height; i++)
+            lock (G.consoleLock)
             {
-                Console.CursorLeft = start_x;
-                for (int j = 0; j < src.Width; j++)
+                if (start_y >= 0) Console.CursorTop = start_y;
+                if (start_x < 0) start_x = 0;
+                for (int i = 0; i < src.Height; i++)
                 {
-                    ConsoleColor c = ClosestConsoleColor(src.GetPixel(j, i));
-                    Console.ForegroundColor = c;
-                    Console.Write("██");
+                    Console.CursorLeft = start_x;
+                    for (int j = 0; j < src.Width; j++)
+                    {
+                        ConsoleColor c = ClosestConsoleColor(src.GetPixel(j, i));
+                        Console.ForegroundColor = c;
+                        Console.Write("██");
+                    }
+                    if (!(Console.CursorLeft < start_x + src.Width)) Console.CursorTop++;
+
                 }
-                if (!(Console.CursorLeft < start_x + src.Width)) Console.CursorTop++;
-                
+                Console.ForegroundColor = ConsoleColor.White;
             }
-            Console.ForegroundColor = ConsoleColor.White;
         }
     }
 }

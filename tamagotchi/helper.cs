@@ -86,5 +86,23 @@ namespace tamagotchi
             for (int i = 0; i < count; i++) ret += str;
             return ret;
         }
+
+        public static string[] split(string str, int len)
+        {
+            if (str.Length <= len) return new string[] { str };
+
+            List<string> res = new List<string>();
+            string temp = "";
+            for (int i = 0; i < str.Length; i++) {
+                temp += str[i];
+                if (temp.Length == len)
+                {
+                    res.Add(temp);
+                    temp = "";
+                }
+            }
+            if (temp != "") res.Add(temp);
+            return res.ToArray();
+        }
     }
 }

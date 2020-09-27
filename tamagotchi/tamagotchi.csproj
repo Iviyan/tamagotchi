@@ -49,7 +49,10 @@
     <Compile Include="Avatars.cs" />
     <Compile Include="ConsoleAPI.cs" />
     <Compile Include="ConsoleDraw.cs" />
+    <Compile Include="ConsoleRadioGroup.cs" />
     <Compile Include="ConsoleText.cs" />
+    <Compile Include="EnumHelper.cs" />
+    <Compile Include="Globals.cs" />
     <Compile Include="helper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -58,6 +61,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="TaskQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
