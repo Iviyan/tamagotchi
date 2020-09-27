@@ -49,6 +49,7 @@
     <Compile Include="Avatars.cs" />
     <Compile Include="ConsoleAPI.cs" />
     <Compile Include="ConsoleDraw.cs" />
+    <Compile Include="ConsoleHelper.cs" />
     <Compile Include="ConsoleRadioGroup.cs" />
     <Compile Include="ConsoleText.cs" />
     <Compile Include="EnumHelper.cs" />

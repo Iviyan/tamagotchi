@@ -18,13 +18,37 @@ namespace tamagotchi
     {
         public static Avatar avatar;
         private static int health = 100;
+        private static int satiety = 80;
+        private static int joy = 50;
+        private static int fatigue = 0;
+        public static int disease = 0;
         public static int Health
         {
             get => health;
-            set
-            {
-                health = value > 100 ? 100 : value;
-            }
+            set => health = Limit(value);
+        }
+        public static int Satiety
+        {
+            get => satiety;
+            set => satiety = Limit(value);
+        }
+        public static int Joy
+        {
+            get => joy;
+            set => joy = Limit(value);
+        }
+        public static int Fatigue
+        {
+            get => fatigue;
+            set => fatigue = Limit(value);
+        }
+        public static void FallIll() => disease += rnd.Next(10, 50);
+        public static void Recover() => disease = 0;
+        public static int Limit(int num, int min = 0, int max = 100)
+        {
+            if (num < min) return min;
+            if (num > max) return max;
+            return num;
         }
         public static int avatarState = 0;
 
@@ -42,7 +66,7 @@ namespace tamagotchi
         public enum Actions
         {
             [Description("Покормить")]
-            Feed = 1,
+            Feed = 0,
             [Description("Поработать")]
             Work,
             [Description("Поиграть")]
@@ -52,6 +76,8 @@ namespace tamagotchi
             [Description("Вылечить")]
             Cure
         }
+
+        public static Random rnd = new Random();
 
         public static int getAvatarState(int health_ = -1)
         {
@@ -71,11 +97,46 @@ namespace tamagotchi
             ConsoleDraw.ConsoleWriteImage(avatar.states[avatarState - 1], 1, Console.WindowWidth - 31);
 
         }
-        public static void loop()
+
+        static void logic(ref int c)
         {
+            if (rnd.Next(0, 20) == 15) FallIll();
+            //helper.mb(c, " ", c % 2);
+            int satietySub = 0;
+            if (c % 2 == 0) satietySub += 1;
+            if (health < 50 && disease > 0 || health < 50 && c % 2 == 0 || disease > 0 && c % 2 == 0) satietySub += 1;
+            if (fatigue > 50) satietySub += 1;
+            Satiety -= satietySub;
+
+            int joySub = 0;
+            if (joy > 50) joySub += 1;
+            else if (c % 2 == 0) joySub += 1;
+            if (health < 50 || disease > 0) joySub += 1;
+            if (satiety < 50) joySub += 1;
+            if (fatigue > 50) joySub += 1;
+            Joy -= joySub;
+            
+            int fatigueSub = 0;
+            if (c % 3 == 0) fatigueSub += 1;
+            if (health < 50 || disease > 0) fatigueSub += 1;
+            Fatigue += fatigueSub;
+
+            int healthSub = 0;
+            if (disease > 0) healthSub += 1;
+            if (satiety < 10) healthSub += 1;
+            if (joy == 0) healthSub += 1;
+            if (fatigue > 90) healthSub += 1;
+            Health -= healthSub;
+
+            if (c == 6) c = 1; else c++;
+        }
+
+        static void loop()
+        {
+            int c = 1;
             for (; ; )
             {
-                bool WResized = Console.WindowWidth != Wwidth || Console.WindowHeight != Console.WindowHeight;
+                bool WResized = Console.WindowWidth != Wwidth || Wheight != Console.WindowHeight;
                 if (WResized)
                 {
                     Console.Clear();
@@ -83,8 +144,13 @@ namespace tamagotchi
                     actions.SetArea(1, 3, width: Console.WindowWidth - 40);
                 }
                 //Console.WriteLine(Console.WindowWidth);
-                Health--;
-                healthBar.Text = $"HP: {Health} / 100";
+                logic(ref c);
+                healthBar.Text = $"Здоровье: {Health} / 100";
+                foodBar.Text = $"Сытость: {Satiety} / 100";
+                joyBar.Text = $"Радость: {Joy} / 100";
+                fatigueBar.Text = $"Усталость: {Fatigue} / 100";
+
+                //actions.Edit((int)Actions.Relax, $"Покормить {Fatigue}");
 
 
                 int state = getAvatarState();
@@ -98,7 +164,7 @@ namespace tamagotchi
                 Wwidth = Console.WindowWidth;
                 //Console.Title = $"{Wwidth} x {Wheight}";
 
-                Thread.Sleep(200);
+                Thread.Sleep(500);
             }
 
         }
@@ -108,8 +174,6 @@ namespace tamagotchi
             //GetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), out saveConsoleMode);
             //helper.mb(saveConsoleMode);
             //helper.mb(Actions.Cure.GetAttributeOfType<DescriptionAttribute>().Description);
-
-            SetQuickEdit(false);
 
             avatar = AvatarSelection();
 
@@ -122,7 +186,7 @@ namespace tamagotchi
             fatigueBar = new ConsoleText(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22, "Усталость: 100 / 100", center: true);
 
             actions = new ConsoleRadioGroup(
-                1, 3,
+                x1: 1, y1:3,
                 new List<string>(
                     Enum.GetValues(typeof(Actions))
                         .Cast<Actions>()
@@ -132,16 +196,33 @@ namespace tamagotchi
                 interval: 1,
                 width: Console.WindowWidth - 40
             );
-
+            /*actions = new ConsoleRadioGroup(
+                x1: 1, y1: 3,
+                new List<string>()
+                {
+                    "1234567",
+                    "12345",
+                    "12345678"
+                },
+                interval: 1,
+                width: 5,
+                height: 9
+            );
+            helper.mb();
+            actions.Edit(0, "7654321890");*/
 
             back.Start();
 
             ConsoleEventHandler += new ConsoleEventDelegate(ConsoleEventCallback); //Обработка закрытия
             SetConsoleCtrlHandler(ConsoleEventHandler, true);
 
-            //helper.mb();
-            //Thread.Sleep(1000);
-            actions.Choice();
+            int sel = 0;
+            for (; ; )
+            {
+                sel = actions.Choice(sel);
+                Actions act = (Actions)(sel);
+                helper.mb(act);
+            }
 
             Console.ReadLine();
         }
@@ -172,7 +253,7 @@ namespace tamagotchi
             {
                 for (; ; )
                 {
-                    if (Console.WindowWidth != Wwidth || Console.WindowHeight != Console.WindowHeight)
+                    if (Console.WindowWidth != Wwidth || Wheight != Console.WindowHeight)
                     {
                         draw();
                         Wheight = Console.WindowHeight;

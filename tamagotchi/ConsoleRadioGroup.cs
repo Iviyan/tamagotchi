@@ -12,9 +12,10 @@ namespace tamagotchi
     public class ConsoleRadioGroup
     {
         public Point p1;
-        //public Point p2;
         public int width;
+        public int Width { get => (width == 0) ? Console.WindowWidth : width; }
         public int height;
+        public int currentHeight = 0;
         private List<string> choices;
         public List<string> Choices
         {
@@ -40,23 +41,30 @@ namespace tamagotchi
         public void SetArea(Point p1, int width = 0, int height = 0, bool rewrite = true) { this.p1 = p1; this.width = width; this.height = height; if (rewrite) Write(); }
         public void SetArea(int x1, int y1, int width = 0, int height = 0, bool rewrite = true) => SetArea(new Point(x1, y1), width, height, rewrite);
 
-        public void Write()
+        public void Write(int startIndex = 0)
         {
             lock (G.consoleLock)
             {
-                int width_ = (width == 0) ? Console.WindowWidth : width;
-                int maxLength = width_ - 2;
+                int maxLength = Width - 2;
 
-                int line = 0;
-                for (int h = 0; h < choices.Count; h++)
+                int line = selHelper.ContainsKey(startIndex) ? selHelper[startIndex].top : 0;
+                
+                for (int h = startIndex; h < choices.Count; h++)
                 {
                     string[] lines = helper.split(choices[h], maxLength);
+                    int lineHeight = lines.Length;
+                    if (height > 0 && line + lineHeight - 1 >= height) lineHeight = height - line;
 
-                    selHelper.Add(h, new SelHelper(line, lines.Length > 1 ? width_ : lines[0].Length, lines.Length));
+                    selHelper[h] =
+                        new SelHelper(
+                            line,
+                            lines.Length > 1 ? Width - 2 : lines[0].Length,
+                            lineHeight
+                        );
+                    ConsoleHelper.ClearArea(p1.X, p1.Y + line, p1.X + width - 1, p1.Y + line + lineHeight + interval);
 
-                    for (int j = 0; j < lines.Length; j++)
+                    for (int j = 0; j < lineHeight; j++)
                     {
-                        if (height > 0 && line >= height) return;
                         Console.SetCursorPosition(p1.X + 1, p1.Y + line);
                         Console.Write(lines[j]);
 
@@ -64,41 +72,72 @@ namespace tamagotchi
                     }
                     line += interval;
                 }
+                currentHeight = line - interval;
             }
         }
 
-        struct SelHelper {
+        public void Edit(int index, string newText)
+        {
+            lock (G.consoleLock)
+            {
+                SelHelper sh = selHelper[index];
+                choices[index] = newText;
+
+                int maxLength = Width - 2;
+                string[] lines = helper.split(newText, maxLength);
+
+                if (sh.height == lines.Length || index + 1 == choices.Count)
+                {
+                    for (int i = 0; i < sh.height; i++)
+                    {
+                        Console.SetCursorPosition(p1.X + 1, p1.Y + sh.top + i);
+                        Console.Write(lines[i]);
+                    }
+                } else
+                {
+                    Write(index);
+                }
+                selHelper[index].width = lines.Length > 1 ? Width - 2 : lines[0].Length;
+            }
+            select();
+        }
+
+        class SelHelper {
             public int top, width, height;
             public SelHelper(int top, int width, int height) { this.top = top; this.width = width; this.height = height; }
         }
         Dictionary<int, SelHelper> selHelper = new Dictionary<int, SelHelper>();
 
-        public int Choice()
+        public void select(int sel, char cStart = '>', char cEnd = '<')
         {
-            int count = choices.Count;
-            int lastChoice = 0;
-            int choice = 0;
-
-            void select_(int sel, char cStart = '>', char cEnd = '<')
+            SelHelper sh = selHelper[sel];
+            for (int i = 0; i < sh.height; i++)
             {
-                SelHelper sh = selHelper[sel]; //helper.mb(sh.top, " ", sh.width, " ", sh.height);
-                for (int i = 0; i < sh.height; i++)
+                lock (G.consoleLock)
                 {
-                    lock (G.consoleLock)
-                    {
-                        Console.SetCursorPosition(p1.X, p1.Y + sh.top);
-                        Console.Write(cStart);
-                        Console.SetCursorPosition(p1.X + 1 + sh.width, p1.Y + sh.top);
-                        Console.Write(cEnd);
-                    }
+                    Console.SetCursorPosition(p1.X, p1.Y + sh.top + i);
+                    Console.Write(cStart);
+                    Console.SetCursorPosition(p1.X + 1 + sh.width, p1.Y + sh.top + i);
+                    Console.Write(cEnd);
                 }
             }
-            void select()
-            {
-                select_(lastChoice, ' ', ' ');
-                select_(choice);
-                lastChoice = choice;
-            }
+        }
+
+        int lastChoice = 0;
+        int choice = 0;
+        public void select()
+        {
+            select(lastChoice, ' ', ' ');
+            select(choice);
+            lastChoice = choice;
+        }
+
+        public int Choice(int selectIndex = 0)
+        {
+            int count = choices.Count;
+            
+            choice = selectIndex;
+
             select();
 
             ConsoleKeyInfo info;
