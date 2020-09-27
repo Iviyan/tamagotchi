@@ -26,6 +26,7 @@ namespace tamagotchi
                 Write();
             }
         }
+        private HashSet<int> disabled = new HashSet<int>();
         int interval;
         public ConsoleRadioGroup(Point p1, List<string> choices, int interval = 0, int width = 0, int height = 0)
         {
@@ -66,8 +67,11 @@ namespace tamagotchi
                     for (int j = 0; j < lineHeight; j++)
                     {
                         Console.SetCursorPosition(p1.X + 1, p1.Y + line);
+                        bool disable = disabled.Contains(h);
+                        if (disable) Console.ForegroundColor = ConsoleColor.Gray;
                         Console.Write(lines[j]);
-
+                        if (disable) Console.ForegroundColor = ConsoleColor.White;
+                        
                         line++;
                     }
                     line += interval;
@@ -88,10 +92,15 @@ namespace tamagotchi
 
                 if (sh.height == lines.Length || index + 1 == choices.Count)
                 {
+                    ConsoleHelper.ClearArea(p1.X, p1.Y + sh.top, p1.X + width - 1, p1.Y + sh.top + sh.height - 1);
                     for (int i = 0; i < sh.height; i++)
                     {
                         Console.SetCursorPosition(p1.X + 1, p1.Y + sh.top + i);
+                        bool disable = disabled.Contains(index);
+                        if (disable) Console.ForegroundColor = ConsoleColor.Gray;
                         Console.Write(lines[i]);
+                        if (disable) Console.ForegroundColor = ConsoleColor.White;
+                        
                     }
                 } else
                 {
@@ -132,6 +141,23 @@ namespace tamagotchi
             lastChoice = choice;
         }
 
+        public void Disable(int index)
+        {
+            if (!disabled.Contains(index))
+            {
+                disabled.Add(index);
+                Edit(index, choices[index]);
+            }
+        }
+        public void Enable(int index)
+        {
+            if (disabled.Contains(index))
+            {
+                disabled.Remove(index);
+                Edit(index, choices[index]);
+            }
+        }
+
         public int Choice(int selectIndex = 0)
         {
             int count = choices.Count;
@@ -155,7 +181,7 @@ namespace tamagotchi
                     if (choice > 0) choice--;
                     select();
                 }
-                else if (info.Key == ConsoleKey.Enter) { return choice; }
+                else if (info.Key == ConsoleKey.Enter && !disabled.Contains(choice)) { return choice; }
             }
         }
 

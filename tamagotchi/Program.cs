@@ -17,6 +17,7 @@ namespace tamagotchi
     class Program
     {
         public static Avatar avatar;
+        private static int balance = 100;
         private static int health = 100;
         private static int satiety = 80;
         private static int joy = 50;
@@ -32,6 +33,7 @@ namespace tamagotchi
             get => satiety;
             set => satiety = Limit(value);
         }
+        public static int FoodCost { get => 10 + (100 - Satiety) / 2; }
         public static int Joy
         {
             get => joy;
@@ -50,6 +52,47 @@ namespace tamagotchi
             if (num > max) return max;
             return num;
         }
+        public static void BalanceUpdate() => balanceBar.Text = $"Баланс: ${balance}";
+
+        static bool feedActionDisable = false;
+        static int feedCooldown = 0;
+        public static void CheckPossibleFeed()
+        {
+            int foodCost = FoodCost;
+
+            if (feedCooldown > 0)
+            {
+                if (!feedActionDisable)
+                {
+                    feedActionDisable = true;
+                    actions.Disable((int)Actions.Feed);
+                }
+                actions.Edit((int)Actions.Feed, $"Покормить ${foodCost} ({feedCooldown} сек.)");
+            }
+            else
+            {
+                actions.Edit((int)Actions.Feed, $"Покормить ${foodCost}");
+                if (!feedActionDisable && foodCost > balance)
+                {
+                    feedActionDisable = true;
+                    actions.Disable((int)Actions.Feed);
+                }
+                else if (feedActionDisable && foodCost <= balance)
+                {
+                    feedActionDisable = false;
+                    actions.Enable((int)Actions.Feed);
+                }
+            }
+        }
+
+        public static void Feed()
+        {
+            balance -= FoodCost;
+            satiety = 110;
+            feedCooldown += 10;
+            BalanceUpdate();
+            CheckPossibleFeed();
+        }
         public static int avatarState = 0;
 
         static int Wheight = 120;
@@ -60,6 +103,7 @@ namespace tamagotchi
         static ConsoleText foodBar;
         static ConsoleText joyBar;
         static ConsoleText fatigueBar;
+        static ConsoleText diseaseBar;
 
         static ConsoleRadioGroup actions;
 
@@ -115,7 +159,7 @@ namespace tamagotchi
             if (satiety < 50) joySub += 1;
             if (fatigue > 50) joySub += 1;
             Joy -= joySub;
-            
+
             int fatigueSub = 0;
             if (c % 3 == 0) fatigueSub += 1;
             if (health < 50 || disease > 0) fatigueSub += 1;
@@ -123,10 +167,14 @@ namespace tamagotchi
 
             int healthSub = 0;
             if (disease > 0) healthSub += 1;
-            if (satiety < 10) healthSub += 1;
+            if (satiety < 10) healthSub += 1; if (satiety > 70) healthSub -= 1;
             if (joy == 0) healthSub += 1;
-            if (fatigue > 90) healthSub += 1;
+            if (fatigue > 90) healthSub += 1; if (fatigue < 20 && c % 2 == 0) healthSub -= 1;
             Health -= healthSub;
+
+            if (disease > 0) disease--;
+
+            if (feedCooldown > 0) feedCooldown--;
 
             if (c == 6) c = 1; else c++;
         }
@@ -144,14 +192,21 @@ namespace tamagotchi
                     actions.SetArea(1, 3, width: Console.WindowWidth - 40);
                 }
                 //Console.WriteLine(Console.WindowWidth);
+                if (disease - 1 > 0)
+                {
+                    diseaseBar.Text = $"{avatar.name} болеет ({disease} сек.)";
+                } else if (disease - 1 == 0)
+                    diseaseBar.Text = $"{avatar.name} не болеет";
+
                 logic(ref c);
+                
                 healthBar.Text = $"Здоровье: {Health} / 100";
                 foodBar.Text = $"Сытость: {Satiety} / 100";
                 joyBar.Text = $"Радость: {Joy} / 100";
                 fatigueBar.Text = $"Усталость: {Fatigue} / 100";
 
-                //actions.Edit((int)Actions.Relax, $"Покормить {Fatigue}");
 
+                CheckPossibleFeed();
 
                 int state = getAvatarState();
                 if (avatarState != state || WResized)
@@ -179,14 +234,15 @@ namespace tamagotchi
 
             Thread back = new Thread(new ThreadStart(loop));
 
-            balanceBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, "Balance: 100$", center: false);
-            healthBar = new ConsoleText(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19, "Здоровье: 100 / 100", center: true);
-            foodBar = new ConsoleText(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20, "Сытость: 100 / 100", center: true);
-            joyBar = new ConsoleText(Console.WindowWidth - 30, 21, Console.WindowWidth - 1, 21, "Радость: 100 / 100", center: true);
-            fatigueBar = new ConsoleText(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22, "Усталость: 100 / 100", center: true);
+            balanceBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, "Баланс: 100$", center: false);
+            healthBar = new ConsoleText(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19, $"Здоровье: {health} / 100", center: true);
+            foodBar = new ConsoleText(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20, $"Сытость: {satiety} / 100", center: true);
+            joyBar = new ConsoleText(Console.WindowWidth - 30, 21, Console.WindowWidth - 1, 21, $"Радость: {joy} / 100", center: true);
+            fatigueBar = new ConsoleText(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22, $"Усталость: {fatigue} / 100", center: true);
+            diseaseBar = new ConsoleText(Console.WindowWidth - 30, 23, Console.WindowWidth - 1, 23, $"{avatar.name} не болеет", center: true);
 
             actions = new ConsoleRadioGroup(
-                x1: 1, y1:3,
+                x1: 1, y1: 3,
                 new List<string>(
                     Enum.GetValues(typeof(Actions))
                         .Cast<Actions>()
@@ -196,20 +252,6 @@ namespace tamagotchi
                 interval: 1,
                 width: Console.WindowWidth - 40
             );
-            /*actions = new ConsoleRadioGroup(
-                x1: 1, y1: 3,
-                new List<string>()
-                {
-                    "1234567",
-                    "12345",
-                    "12345678"
-                },
-                interval: 1,
-                width: 5,
-                height: 9
-            );
-            helper.mb();
-            actions.Edit(0, "7654321890");*/
 
             back.Start();
 
@@ -221,7 +263,22 @@ namespace tamagotchi
             {
                 sel = actions.Choice(sel);
                 Actions act = (Actions)(sel);
-                helper.mb(act);
+
+                switch (act)
+                {
+                    case Actions.Feed:
+                        {
+                            Feed();
+                        }
+                        break;
+                    case Actions.Play:
+                        {
+                            balance += 30;
+                            BalanceUpdate();
+                        }
+                        break;
+                }
+                //helper.mb(act);
             }
 
             Console.ReadLine();
