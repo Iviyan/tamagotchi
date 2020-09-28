@@ -80,8 +80,9 @@ namespace tamagotchi
             }
         }
 
-        public void Edit(int index, string newText)
+        public void Edit(int index, string newText, bool enable = false)
         {
+            if (newText == choices[index] && enable == false) return;
             lock (G.consoleLock)
             {
                 SelHelper sh = selHelper[index];
@@ -146,7 +147,7 @@ namespace tamagotchi
             if (!disabled.Contains(index))
             {
                 disabled.Add(index);
-                Edit(index, choices[index]);
+                Edit(index, choices[index], enable: true);
             }
         }
         public void Enable(int index)
@@ -154,7 +155,7 @@ namespace tamagotchi
             if (disabled.Contains(index))
             {
                 disabled.Remove(index);
-                Edit(index, choices[index]);
+                Edit(index, choices[index], enable: true);
             }
         }
 
@@ -165,7 +166,7 @@ namespace tamagotchi
             choice = selectIndex;
 
             select();
-
+            
             ConsoleKeyInfo info;
             while (true)
             {

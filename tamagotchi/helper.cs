@@ -104,5 +104,11 @@ namespace tamagotchi
             if (temp != "") res.Add(temp);
             return res.ToArray();
         }
+
+        public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
+        {
+            foreach (var item in source)
+                action(item);
+        }
     }
 }

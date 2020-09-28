@@ -44,6 +44,7 @@ namespace tamagotchi
             get => fatigue;
             set => fatigue = Limit(value);
         }
+
         public static void FallIll() => disease += rnd.Next(10, 50);
         public static void Recover() => disease = 0;
         public static int Limit(int num, int min = 0, int max = 100)
@@ -52,46 +53,181 @@ namespace tamagotchi
             if (num > max) return max;
             return num;
         }
-        public static void BalanceUpdate() => balanceBar.Text = $"Баланс: ${balance}";
+        public static int Balance { get => balance; set { balance = value; balanceBar.Text = $"Баланс: ${balance}"; } }
+
+        static void CheckDisease()
+        {
+            if (disease > 0)
+                diseaseBar.Text = $"{avatar.name} болеет ({disease} сек.)";
+            else if (disease  == 0)
+                diseaseBar.Text = $"{avatar.name} не болеет";
+        }
+        public static void DisableAllActions()
+        {
+            Enum.GetValues(typeof(Actions))
+                .Cast<Actions>()
+                .ForEach(v =>
+                {
+                    actions.Disable((int)v);
+                });
+        }
+        public static void EnableAllActions()
+        {
+            if (!feedActionDisable) actions.Enable((int)Actions.Feed);
+            if (!workActionDisable) actions.Enable((int)Actions.Work);
+            if (!playActionDisable) actions.Enable((int)Actions.Play);
+            if (!relaxActionDisable) actions.Enable((int)Actions.Relax);
+            if (!cureActionDisable) actions.Enable((int)Actions.Cure);
+            /*Enum.GetValues(typeof(Actions))
+                .Cast<Actions>()
+                .ForEach(v =>
+                {
+                    actions.Enable((int)v);
+                });*/
+        }
+        
+        static int cooldown = 0;
+        static Actions cooldownAction;
 
         static bool feedActionDisable = false;
-        static int feedCooldown = 0;
+        static bool workActionDisable = false;
+        static bool playActionDisable = false;
+        static bool relaxActionDisable = false;
+        static bool cureActionDisable = false;
+
+        public const int work_balance = 50;
+        public const int work_fatigue = 30;
+        public const int work_satiety = -25;
+
+        public const int play_fatigue = 25;
+        public const int play_satiety = -20;
+        public const int play_joy = 75;
+
+        public const int relax_fatigue = -75;
+        public const int relax_satiety = -25;
+        public const int relax_joy = 15;
+
+        static bool PossibleFeed { get => FoodCost <= balance; }
+        static bool PossibleWork { get => Fatigue <= 100 - work_fatigue && satiety > work_fatigue; }
+        static bool PossiblePlay { get => Fatigue <= 100 - play_fatigue && satiety > play_satiety; }
+        static bool PossibleRelax { get => Satiety > 10; }
         public static void CheckPossibleFeed()
         {
             int foodCost = FoodCost;
 
-            if (feedCooldown > 0)
+            if (cooldown > 0 && cooldownAction == Actions.Feed)
             {
-                if (!feedActionDisable)
+                actions.Edit((int)Actions.Feed, $"{Actions.Feed.Description()} ${foodCost} ({cooldown} сек.)");
+            } else
+            {
+                actions.Edit((int)Actions.Feed, $"{Actions.Feed.Description()} ${foodCost}");
+                if (!feedActionDisable && !PossibleFeed)
                 {
                     feedActionDisable = true;
                     actions.Disable((int)Actions.Feed);
-                }
-                actions.Edit((int)Actions.Feed, $"Покормить ${foodCost} ({feedCooldown} сек.)");
-            }
-            else
-            {
-                actions.Edit((int)Actions.Feed, $"Покормить ${foodCost}");
-                if (!feedActionDisable && foodCost > balance)
-                {
-                    feedActionDisable = true;
-                    actions.Disable((int)Actions.Feed);
-                }
-                else if (feedActionDisable && foodCost <= balance)
+                } else if (feedActionDisable && PossibleFeed && cooldown == 0)
                 {
                     feedActionDisable = false;
                     actions.Enable((int)Actions.Feed);
                 }
             }
         }
+        public static void CheckPossibleWork()
+        {
+            if (cooldown > 0 && cooldownAction == Actions.Work)
+            {
+                actions.Edit((int)Actions.Work, $"{Actions.Work.Description()} ({cooldown} сек.)");
+            } else
+            {
+                actions.Edit((int)Actions.Work, $"{Actions.Work.Description()}");
+                if (!workActionDisable && !PossibleWork)
+                {
+                    workActionDisable = true;
+                    actions.Disable((int)Actions.Work);
+                } else if (workActionDisable && PossibleWork && cooldown == 0)
+                {
+                    workActionDisable = false;
+                    actions.Enable((int)Actions.Work);
+                }
+            }
+        }
+        public static void CheckPossiblePlay()
+        {
+            if (cooldown > 0 && cooldownAction == Actions.Play)
+            {
+                actions.Edit((int)Actions.Play, $"{Actions.Play.Description()} ({cooldown} сек.)");
+            } else
+            {
+                actions.Edit((int)Actions.Play, $"{Actions.Play.Description()}");
+                if (!feedActionDisable && !PossiblePlay)
+                {
+                    playActionDisable = true;
+                    actions.Disable((int)Actions.Play);
+                } else if (playActionDisable && PossiblePlay && cooldown == 0)
+                {
+                    playActionDisable = false;
+                    actions.Enable((int)Actions.Play);
+                }
+            }
+        }
+        public static void CheckPossibleRelax()
+        {
+            if (cooldown > 0 && cooldownAction == Actions.Relax)
+            {
+                actions.Edit((int)Actions.Relax, $"{Actions.Relax.Description()} ({cooldown} сек.)");
+            } else
+            {
+                actions.Edit((int)Actions.Relax, $"{Actions.Relax.Description()}");
+                if (!relaxActionDisable && !PossibleRelax)
+                {
+                    relaxActionDisable = true;
+                    actions.Disable((int)Actions.Relax);
+                } else if (relaxActionDisable && PossibleRelax && cooldown == 0)
+                {
+                    relaxActionDisable = false;
+                    actions.Enable((int)Actions.Relax);
+                }
+            }
+        }
 
         public static void Feed()
         {
-            balance -= FoodCost;
-            satiety = 110;
-            feedCooldown += 10;
-            BalanceUpdate();
+            Balance -= FoodCost;
+            Satiety = 100;
+            cooldown += 10;
+            cooldownAction = Actions.Feed;
+            DisableAllActions();
             CheckPossibleFeed();
+        }
+        public static void Work()
+        {
+            Balance += 50;
+            Fatigue += work_fatigue;
+            Satiety += work_satiety;
+            cooldown += 10;
+            cooldownAction = Actions.Work;
+            DisableAllActions();
+            CheckPossibleWork();
+        }
+        public static void Play()
+        {
+            Fatigue += play_fatigue;
+            Satiety += play_satiety;
+            Joy += play_joy;
+            cooldown += 10;
+            cooldownAction = Actions.Play;
+            DisableAllActions();
+            CheckPossiblePlay();
+        }
+        public static void Relax()
+        {
+            Fatigue += relax_fatigue;
+            Satiety += relax_satiety;
+            Joy += relax_joy;
+            cooldown += 10;
+            cooldownAction = Actions.Relax;
+            DisableAllActions();
+            CheckPossibleRelax();
         }
         public static int avatarState = 0;
 
@@ -144,12 +280,11 @@ namespace tamagotchi
 
         static void logic(ref int c)
         {
-            if (rnd.Next(0, 20) == 15) FallIll();
+            if (disease == 0 && rnd.Next(0, 25) == 15) FallIll();
             //helper.mb(c, " ", c % 2);
             int satietySub = 0;
             if (c % 2 == 0) satietySub += 1;
             if (health < 50 && disease > 0 || health < 50 && c % 2 == 0 || disease > 0 && c % 2 == 0) satietySub += 1;
-            if (fatigue > 50) satietySub += 1;
             Satiety -= satietySub;
 
             int joySub = 0;
@@ -174,7 +309,8 @@ namespace tamagotchi
 
             if (disease > 0) disease--;
 
-            if (feedCooldown > 0) feedCooldown--;
+            if (cooldown - 1 == 0) EnableAllActions();
+            if (cooldown > 0) cooldown--;
 
             if (c == 6) c = 1; else c++;
         }
@@ -192,10 +328,10 @@ namespace tamagotchi
                     actions.SetArea(1, 3, width: Console.WindowWidth - 40);
                 }
                 //Console.WriteLine(Console.WindowWidth);
+
                 if (disease - 1 > 0)
-                {
                     diseaseBar.Text = $"{avatar.name} болеет ({disease} сек.)";
-                } else if (disease - 1 == 0)
+                else if (disease - 1 == 0)
                     diseaseBar.Text = $"{avatar.name} не болеет";
 
                 logic(ref c);
@@ -207,6 +343,9 @@ namespace tamagotchi
 
 
                 CheckPossibleFeed();
+                CheckPossibleWork();
+                CheckPossiblePlay();
+                CheckPossibleRelax();
 
                 int state = getAvatarState();
                 if (avatarState != state || WResized)
@@ -271,10 +410,25 @@ namespace tamagotchi
                             Feed();
                         }
                         break;
+                    case Actions.Work:
+                        {
+                            Work();
+                        }
+                        break;
                     case Actions.Play:
                         {
-                            balance += 30;
-                            BalanceUpdate();
+                            Play();
+                        }
+                        break;
+                    case Actions.Relax:
+                        {
+                            Relax();
+                        }
+                        break;
+                    case Actions.Cure:
+                        {
+                            disease = 0;
+                            CheckDisease();
                         }
                         break;
                 }
