@@ -110,5 +110,44 @@ namespace tamagotchi
             foreach (var item in source)
                 action(item);
         }
+
+        public static T[] Slice<T>(this T[] arr, uint indexFrom, uint indexTo)
+        {
+            if (indexFrom > indexTo)
+            {
+                throw new ArgumentOutOfRangeException("indexFrom is bigger than indexTo!");
+            }
+
+            uint length = indexTo - indexFrom;
+            T[] result = new T[length];
+            Array.Copy(arr, indexFrom, result, 0, length);
+
+            return result;
+        }
+
+        static Random rnd = new Random();
+        public static int[] RndItems(int size, int count)
+        {
+            
+
+            int[] res = new int[size];
+            for (int i = 0; i < size; i++) res[i] = 0;
+            List<int> free = new List<int>();
+            for (int i = 0; i < size; i++) free.Add(i); 
+            for (int i = 0; i < count; i++)
+            {
+                
+                int r = rnd.Next(0, size - i);// mb(size - 1 - i);
+                int ind = free[r];
+                res[ind]++;
+
+                //Console.WriteLine($"{free.Aggregate(">", (a, c) => a += c.ToString())}  - {r} = {ind}");
+
+                free.RemoveAt(r);
+            }
+            return res;
+        }
+
+        public static Queue<T> ArrayToQueue<T>(T[] arr) => new Queue<T>(arr);
     }
 }

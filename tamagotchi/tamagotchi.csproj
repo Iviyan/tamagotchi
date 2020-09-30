@@ -53,6 +53,7 @@
     <Compile Include="ConsoleRadioGroup.cs" />
     <Compile Include="ConsoleText.cs" />
     <Compile Include="EnumHelper.cs" />
+    <Compile Include="GamePressKey.cs" />
     <Compile Include="Globals.cs" />
     <Compile Include="helper.cs" />
     <Compile Include="Program.cs" />

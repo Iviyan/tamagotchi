@@ -85,6 +85,8 @@ namespace tamagotchi
                     actions.Enable((int)v);
                 });*/
         }
+
+        public static bool Playing = false;
         
         static int cooldown = 0;
         static Actions cooldownAction;
@@ -98,6 +100,7 @@ namespace tamagotchi
         public const int work_balance = 50;
         public const int work_fatigue = 30;
         public const int work_satiety = -25;
+        public const int work_joy = -10;
 
         public const int play_fatigue = 25;
         public const int play_satiety = -20;
@@ -190,10 +193,28 @@ namespace tamagotchi
             }
         }
 
+        private static Queue<int> balanceQ;
+        private static Queue<int> healthQ;
+        private static Queue<int> satietyQ;
+        private static Queue<int> joyQ;
+        private static Queue<int> fatigueQ;
+
+        static Queue<int> CreateActionQueue(int num, int time)
+        {
+            int numBase = num / time;
+            int[] res = new int[time];
+            for (int i = 0; i < time; i++) res[i] = numBase;
+            int numMod = num % time;
+            if (numMod == 0) return helper.ArrayToQueue(res);
+            int[] numMods = helper.RndItems(time, numMod);
+            for (int i = 0; i < time; i++) res[i] += numMods[i];
+            return helper.ArrayToQueue(res);
+        }
+
         public static void Feed()
         {
             Balance -= FoodCost;
-            Satiety = 100;
+            satietyQ = CreateActionQueue(100, 10);//Satiety = 100;
             cooldown += 10;
             cooldownAction = Actions.Feed;
             DisableAllActions();
@@ -201,9 +222,10 @@ namespace tamagotchi
         }
         public static void Work()
         {
-            Balance += 50;
-            Fatigue += work_fatigue;
-            Satiety += work_satiety;
+            balanceQ = CreateActionQueue(work_balance, 10); //helper.mb(String.Join(",", balanceQ.ToArray()));
+            fatigueQ = CreateActionQueue(work_fatigue, 10);//Fatigue += work_fatigue;
+            satietyQ = CreateActionQueue(work_satiety, 10); //Satiety += work_satiety;
+            joyQ = CreateActionQueue(work_joy, 10); //Satiety += work_satiety;
             cooldown += 10;
             cooldownAction = Actions.Work;
             DisableAllActions();
@@ -211,9 +233,9 @@ namespace tamagotchi
         }
         public static void Play()
         {
-            Fatigue += play_fatigue;
-            Satiety += play_satiety;
-            Joy += play_joy;
+            fatigueQ = CreateActionQueue(play_fatigue, 10);//Fatigue += work_fatigue;
+            satietyQ = CreateActionQueue(play_satiety, 10);
+            joyQ = CreateActionQueue(play_joy, 10);
             cooldown += 10;
             cooldownAction = Actions.Play;
             DisableAllActions();
@@ -221,9 +243,9 @@ namespace tamagotchi
         }
         public static void Relax()
         {
-            Fatigue += relax_fatigue;
-            Satiety += relax_satiety;
-            Joy += relax_joy;
+            fatigueQ = CreateActionQueue(relax_fatigue, 10);//Fatigue += work_fatigue;
+            satietyQ = CreateActionQueue(relax_satiety, 10);
+            joyQ = CreateActionQueue(relax_joy, 10);
             cooldown += 10;
             cooldownAction = Actions.Relax;
             DisableAllActions();
@@ -280,39 +302,69 @@ namespace tamagotchi
 
         static void logic(ref int c)
         {
-            if (disease == 0 && rnd.Next(0, 25) == 15) FallIll();
-            //helper.mb(c, " ", c % 2);
-            int satietySub = 0;
-            if (c % 2 == 0) satietySub += 1;
-            if (health < 50 && disease > 0 || health < 50 && c % 2 == 0 || disease > 0 && c % 2 == 0) satietySub += 1;
-            Satiety -= satietySub;
+            if (cooldown > 0)
+            {
+                if (cooldown - 1 == 0) EnableAllActions();
+                
+                switch (cooldownAction)
+                {
+                    case Actions.Feed:
+                        Satiety += satietyQ.Dequeue();
+                        break;
+                    case Actions.Work:
+                        Balance += balanceQ.Dequeue(); 
+                        Fatigue += fatigueQ.Dequeue();
+                        Satiety += satietyQ.Dequeue();
+                        Joy += joyQ.Dequeue();
+                        break;
+                    case Actions.Play:
+                        Fatigue += fatigueQ.Dequeue();
+                        Satiety += satietyQ.Dequeue();
+                        Joy += joyQ.Dequeue();
+                        break;
+                    case Actions.Relax:
+                        Fatigue += fatigueQ.Dequeue();
+                        Satiety += satietyQ.Dequeue();
+                        Joy += joyQ.Dequeue();
+                        break;
+                    
+                }
+                
+                cooldown--;
+            }
+            else
+            {
+                if (disease == 0 && rnd.Next(0, 25) == 15) FallIll();
+                //helper.mb(c, " ", c % 2);
+                int satietySub = 0;
+                if (c % 2 == 0) satietySub += 1;
+                if (health < 50 && disease > 0 || health < 50 && c % 2 == 0 || disease > 0 && c % 2 == 0) satietySub += 1;
+                Satiety -= satietySub;
 
-            int joySub = 0;
-            if (joy > 50) joySub += 1;
-            else if (c % 2 == 0) joySub += 1;
-            if (health < 50 || disease > 0) joySub += 1;
-            if (satiety < 50) joySub += 1;
-            if (fatigue > 50) joySub += 1;
-            Joy -= joySub;
+                int joySub = 0;
+                if (joy > 50) joySub += 1;
+                else if (c % 2 == 0) joySub += 1;
+                if (health < 50 || disease > 0) joySub += 1;
+                if (satiety < 50) joySub += 1;
+                if (fatigue > 50) joySub += 1;
+                Joy -= joySub;
 
-            int fatigueSub = 0;
-            if (c % 3 == 0) fatigueSub += 1;
-            if (health < 50 || disease > 0) fatigueSub += 1;
-            Fatigue += fatigueSub;
+                int fatigueSub = 0;
+                if (c % 3 == 0) fatigueSub += 1;
+                if (health < 50 || disease > 0) fatigueSub += 1;
+                Fatigue += fatigueSub;
 
-            int healthSub = 0;
-            if (disease > 0) healthSub += 1;
-            if (satiety < 10) healthSub += 1; if (satiety > 70) healthSub -= 1;
-            if (joy == 0) healthSub += 1;
-            if (fatigue > 90) healthSub += 1; if (fatigue < 20 && c % 2 == 0) healthSub -= 1;
-            Health -= healthSub;
+                int healthSub = 0;
+                if (disease > 0) healthSub += 1;
+                if (satiety < 10) healthSub += 1; if (satiety > 70) healthSub -= 1;
+                if (joy == 0) healthSub += 1;
+                if (fatigue > 90) healthSub += 1; if (fatigue < 20 && c % 2 == 0) healthSub -= 1;
+                Health -= healthSub;
+
+                if (c == 6) c = 1; else c++;
+            }
 
             if (disease > 0) disease--;
-
-            if (cooldown - 1 == 0) EnableAllActions();
-            if (cooldown > 0) cooldown--;
-
-            if (c == 6) c = 1; else c++;
         }
 
         static void loop()
@@ -368,6 +420,17 @@ namespace tamagotchi
             //GetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), out saveConsoleMode);
             //helper.mb(saveConsoleMode);
             //helper.mb(Actions.Cure.GetAttributeOfType<DescriptionAttribute>().Description);
+
+            /*for (int i = 0; i < 10; i++) Console.Write(i);
+            Console.WriteLine();
+            for (int i = 0; i < 1; i++)  Console.WriteLine(String.Join("", helper.RndItems(10, 4).Select( a => a+1)));*/
+            /*int[] res = new int[10];
+            for (int i = 0; i < 10; i++) res[i] = 0;
+            for (int i = 0; i < 1000; i++) res[rnd.Next(0, 10)]++;
+            Console.WriteLine(String.Join("|", res));*/
+
+            /*Console.ReadKey();
+            return;*/
 
             avatar = AvatarSelection();
 
