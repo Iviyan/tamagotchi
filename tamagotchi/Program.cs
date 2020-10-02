@@ -233,6 +233,10 @@ namespace tamagotchi
         }
         public static void Play()
         {
+            GamePressKey gps = new GamePressKey();
+            Playing = true;
+            gps.start();
+            Playing = false;
             fatigueQ = CreateActionQueue(play_fatigue, 10);//Fatigue += work_fatigue;
             satietyQ = CreateActionQueue(play_satiety, 10);
             joyQ = CreateActionQueue(play_joy, 10);
@@ -372,6 +376,7 @@ namespace tamagotchi
             int c = 1;
             for (; ; )
             {
+                if (Playing) { Thread.Sleep(500); continue; }
                 bool WResized = Console.WindowWidth != Wwidth || Wheight != Console.WindowHeight;
                 if (WResized)
                 {
