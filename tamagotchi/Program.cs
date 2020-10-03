@@ -44,8 +44,16 @@ namespace tamagotchi
             get => fatigue;
             set => fatigue = Limit(value);
         }
+        public static int Disease
+        {
+            get => disease;
+            set {
+                disease = Math.Max(0, value);
+                CheckDisease();
+            }
+        }
 
-        public static void FallIll() => disease += rnd.Next(10, 50);
+        public static void FallIll() => disease += G.rnd.Next(10, 50);
         public static void Recover() => disease = 0;
         public static int Limit(int num, int min = 0, int max = 100)
         {
@@ -95,7 +103,7 @@ namespace tamagotchi
         static bool workActionDisable = false;
         static bool playActionDisable = false;
         static bool relaxActionDisable = false;
-        static bool cureActionDisable = false;
+        static bool cureActionDisable = true;
 
         public const int work_balance = 50;
         public const int work_fatigue = 30;
@@ -109,11 +117,14 @@ namespace tamagotchi
         public const int relax_fatigue = -75;
         public const int relax_satiety = -25;
         public const int relax_joy = 15;
+        
+        public const int cure_satiety = -20;
 
         static bool PossibleFeed { get => FoodCost <= balance; }
-        static bool PossibleWork { get => Fatigue <= 100 - work_fatigue && satiety > work_fatigue; }
-        static bool PossiblePlay { get => Fatigue <= 100 - play_fatigue && satiety > play_satiety; }
+        static bool PossibleWork { get => Fatigue <= 100 - work_fatigue && satiety > -work_fatigue; }
+        static bool PossiblePlay { get => Fatigue <= 100 - play_fatigue && satiety > -play_satiety; }
         static bool PossibleRelax { get => Satiety > 10; }
+        static bool PossibleCure { get => disease > 0; }
         public static void CheckPossibleFeed()
         {
             int foodCost = FoodCost;
@@ -192,12 +203,27 @@ namespace tamagotchi
                 }
             }
         }
+        public static void CheckPossibleCure()
+        {
+            if (cooldown > 0 && cooldownAction == Actions.Cure)
+            {
+                actions.Edit((int)Actions.Cure, $"{Actions.Cure.Description()} ({cooldown} сек.)");
+            } else
+            {
+                actions.Edit((int)Actions.Cure, $"{Actions.Cure.Description()}");
+                if (!cureActionDisable && !PossibleCure)
+                {
+                    cureActionDisable = true;
+                    actions.Disable((int)Actions.Cure);
+                } else if (cureActionDisable && PossibleCure && cooldown == 0)
+                {
+                    cureActionDisable = false;
+                    actions.Enable((int)Actions.Cure);
+                }
+            }
+        }
 
-        private static Queue<int> balanceQ;
-        private static Queue<int> healthQ;
-        private static Queue<int> satietyQ;
-        private static Queue<int> joyQ;
-        private static Queue<int> fatigueQ;
+        private static Queue<int> balanceQ, healthQ, satietyQ, joyQ, fatigueQ, diseaseQ;
 
         static Queue<int> CreateActionQueue(int num, int time)
         {
@@ -233,17 +259,21 @@ namespace tamagotchi
         }
         public static void Play()
         {
-            GamePressKey gps = new GamePressKey();
+            GamePressKey gps = new GamePressKey(count: 20);
             Playing = true;
             gps.start();
             Playing = false;
-            fatigueQ = CreateActionQueue(play_fatigue, 10);//Fatigue += work_fatigue;
+            Fatigue += play_fatigue;
+            Satiety += play_satiety;
+            Joy += play_joy;
+            /*fatigueQ = CreateActionQueue(play_fatigue, 10);
             satietyQ = CreateActionQueue(play_satiety, 10);
             joyQ = CreateActionQueue(play_joy, 10);
             cooldown += 10;
-            cooldownAction = Actions.Play;
-            DisableAllActions();
-            CheckPossiblePlay();
+            cooldownAction = Actions.Play;*/
+            Redraw();
+            //DisableAllActions();
+            //CheckPossiblePlay();
         }
         public static void Relax()
         {
@@ -254,6 +284,16 @@ namespace tamagotchi
             cooldownAction = Actions.Relax;
             DisableAllActions();
             CheckPossibleRelax();
+        }
+        public static void Cure()
+        {
+            //disease = 0;
+            diseaseQ = CreateActionQueue(-disease, 5);
+            satietyQ = CreateActionQueue(cure_satiety, 5);
+            cooldown += 5;
+            cooldownAction = Actions.Cure;
+            DisableAllActions();
+            CheckPossibleCure();
         }
         public static int avatarState = 0;
 
@@ -283,7 +323,12 @@ namespace tamagotchi
             Cure
         }
 
-        public static Random rnd = new Random();
+        public static void Redraw()
+        {
+            drawAvatar();
+            balanceBar.write();
+            actions.Write();
+        }
 
         public static int getAvatarState(int health_ = -1)
         {
@@ -301,7 +346,6 @@ namespace tamagotchi
         {
             //Console.Title = $"{Console.WindowWidth} x {Console.WindowHeight}";
             ConsoleDraw.ConsoleWriteImage(avatar.states[avatarState - 1], 1, Console.WindowWidth - 31);
-
         }
 
         static void logic(ref int c)
@@ -331,6 +375,10 @@ namespace tamagotchi
                         Satiety += satietyQ.Dequeue();
                         Joy += joyQ.Dequeue();
                         break;
+                    case Actions.Cure:
+                        Satiety += satietyQ.Dequeue();
+                        Disease += diseaseQ.Dequeue();
+                        break;
                     
                 }
                 
@@ -338,7 +386,7 @@ namespace tamagotchi
             }
             else
             {
-                if (disease == 0 && rnd.Next(0, 25) == 15) FallIll();
+                if (disease == 0 && G.rnd.Next(0, 25) == 15) FallIll();
                 //helper.mb(c, " ", c % 2);
                 int satietySub = 0;
                 if (c % 2 == 0) satietySub += 1;
@@ -361,7 +409,7 @@ namespace tamagotchi
                 int healthSub = 0;
                 if (disease > 0) healthSub += 1;
                 if (satiety < 10) healthSub += 1; if (satiety > 70) healthSub -= 1;
-                if (joy == 0) healthSub += 1;
+                if (joy == 0 && c % 2 == 0) healthSub += 1;
                 if (fatigue > 90) healthSub += 1; if (fatigue < 20 && c % 2 == 0) healthSub -= 1;
                 Health -= healthSub;
 
@@ -403,6 +451,7 @@ namespace tamagotchi
                 CheckPossibleWork();
                 CheckPossiblePlay();
                 CheckPossibleRelax();
+                CheckPossibleCure();
 
                 int state = getAvatarState();
                 if (avatarState != state || WResized)
@@ -459,6 +508,7 @@ namespace tamagotchi
                 interval: 1,
                 width: Console.WindowWidth - 40
             );
+            actions.Disable((int)Actions.Cure);
 
             back.Start();
 
@@ -495,8 +545,7 @@ namespace tamagotchi
                         break;
                     case Actions.Cure:
                         {
-                            disease = 0;
-                            CheckDisease();
+                            Cure();
                         }
                         break;
                 }

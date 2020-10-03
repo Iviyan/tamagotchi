@@ -48,10 +48,10 @@ namespace tamagotchi
                 {
                     int mod = text_.Length % width; //длина последней строки
                     int div = text_.Length / width; 
-                    if (mod > 0) text_ = (div > 0 ? text_.Substring(0, width * div) : "") + helper.mul(" ", (width - mod) / 2) + text_.Substring(width * div, mod);
+                    if (mod > 0) text_ = (div > 0 ? text_.Substring(0, width * div) : "") + new string(' ', (width - mod) / 2) + text_.Substring(width * div, mod);
 
                 }
-                text_ += helper.mul(" ", length - text_.Length);
+                text_ += new string(' ', length - text_.Length);
             }
             lock (G.consoleLock)
             {
