@@ -17,6 +17,9 @@ namespace tamagotchi
     class Program
     {
         public static Avatar avatar;
+        private static int avatarIndex;
+        public static bool die = false;
+        private static int time = 0;
         private static int balance = 100;
         private static int health = 100;
         private static int satiety = 80;
@@ -67,7 +70,7 @@ namespace tamagotchi
         {
             if (disease > 0)
                 diseaseBar.Text = $"{avatar.name} болеет ({disease} сек.)";
-            else if (disease  == 0)
+            else if (disease == 0)
                 diseaseBar.Text = $"{avatar.name} не болеет";
         }
         public static void DisableAllActions()
@@ -277,7 +280,7 @@ namespace tamagotchi
         }
         public static void Relax()
         {
-            fatigueQ = CreateActionQueue(relax_fatigue, 10);//Fatigue += work_fatigue;
+            fatigueQ = CreateActionQueue(relax_fatigue, 10);
             satietyQ = CreateActionQueue(relax_satiety, 10);
             joyQ = CreateActionQueue(relax_joy, 10);
             cooldown += 10;
@@ -344,7 +347,6 @@ namespace tamagotchi
         }
         public static void drawAvatar()
         {
-            //Console.Title = $"{Console.WindowWidth} x {Console.WindowHeight}";
             ConsoleDraw.ConsoleWriteImage(avatar.states[avatarState - 1], 1, Console.WindowWidth - 31);
         }
 
@@ -379,15 +381,14 @@ namespace tamagotchi
                         Satiety += satietyQ.Dequeue();
                         Disease += diseaseQ.Dequeue();
                         break;
-                    
                 }
-                
+
                 cooldown--;
             }
             else
             {
                 if (disease == 0 && G.rnd.Next(0, 25) == 15) FallIll();
-                //helper.mb(c, " ", c % 2);
+                
                 int satietySub = 0;
                 if (c % 2 == 0) satietySub += 1;
                 if (health < 50 && disease > 0 || health < 50 && c % 2 == 0 || disease > 0 && c % 2 == 0) satietySub += 1;
@@ -430,16 +431,18 @@ namespace tamagotchi
                 {
                     Console.Clear();
                     healthBar.SetArea(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19);
+                    foodBar.SetArea(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20);
+                    joyBar.SetArea(Console.WindowWidth - 30, 21, Console.WindowWidth - 1, 21);
+                    fatigueBar.SetArea(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22);
+                    diseaseBar.SetArea(Console.WindowWidth - 30, 23, Console.WindowWidth - 1, 23);
+                    
                     actions.SetArea(1, 3, width: Console.WindowWidth - 40);
                 }
                 //Console.WriteLine(Console.WindowWidth);
 
-                if (disease - 1 > 0)
-                    diseaseBar.Text = $"{avatar.name} болеет ({disease} сек.)";
-                else if (disease - 1 == 0)
-                    diseaseBar.Text = $"{avatar.name} не болеет";
-
                 logic(ref c);
+
+                if (health == 0) { Die(); break; };
                 
                 healthBar.Text = $"Здоровье: {Health} / 100";
                 foodBar.Text = $"Сытость: {Satiety} / 100";
@@ -471,32 +474,30 @@ namespace tamagotchi
 
         static void Main(string[] args)
         {
-            //GetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), out saveConsoleMode);
-            //helper.mb(saveConsoleMode);
-            //helper.mb(Actions.Cure.GetAttributeOfType<DescriptionAttribute>().Description);
+            Wheight = Console.WindowHeight;
+            Wwidth = Console.WindowWidth;
 
-            /*for (int i = 0; i < 10; i++) Console.Write(i);
-            Console.WriteLine();
-            for (int i = 0; i < 1; i++)  Console.WriteLine(String.Join("", helper.RndItems(10, 4).Select( a => a+1)));*/
-            /*int[] res = new int[10];
-            for (int i = 0; i < 10; i++) res[i] = 0;
-            for (int i = 0; i < 1000; i++) res[rnd.Next(0, 10)]++;
-            Console.WriteLine(String.Join("|", res));*/
+            if (Settings.Default.avatar == -1)
+                avatar = AvatarSelection();
+            else
+                avatar = avatars[Properties.Settings.Default.avatar];
 
-            /*Console.ReadKey();
-            return;*/
-
-            avatar = AvatarSelection();
+            balance = Properties.Settings.Default.balance;
+            health = Properties.Settings.Default.health;
+            satiety = Properties.Settings.Default.satiety;
+            joy = Properties.Settings.Default.joy;
+            fatigue = Properties.Settings.Default.fatigue;
+            disease = Properties.Settings.Default.disease;
 
             Thread back = new Thread(new ThreadStart(loop));
 
-            balanceBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, "Баланс: 100$", center: false);
+            balanceBar = new ConsoleText(1, 0, Console.WindowWidth - 40, 0, $"Баланс: {balance}$", center: false);
             healthBar = new ConsoleText(Console.WindowWidth - 30, 19, Console.WindowWidth - 1, 19, $"Здоровье: {health} / 100", center: true);
             foodBar = new ConsoleText(Console.WindowWidth - 30, 20, Console.WindowWidth - 1, 20, $"Сытость: {satiety} / 100", center: true);
             joyBar = new ConsoleText(Console.WindowWidth - 30, 21, Console.WindowWidth - 1, 21, $"Радость: {joy} / 100", center: true);
             fatigueBar = new ConsoleText(Console.WindowWidth - 30, 22, Console.WindowWidth - 1, 22, $"Усталость: {fatigue} / 100", center: true);
             diseaseBar = new ConsoleText(Console.WindowWidth - 30, 23, Console.WindowWidth - 1, 23, $"{avatar.name} не болеет", center: true);
-
+            
             actions = new ConsoleRadioGroup(
                 x1: 1, y1: 3,
                 new List<string>(
@@ -549,10 +550,7 @@ namespace tamagotchi
                         }
                         break;
                 }
-                //helper.mb(act);
             }
-
-            Console.ReadLine();
         }
 
         static Avatar AvatarSelection()
@@ -606,10 +604,26 @@ namespace tamagotchi
                     if (select > 0) select--;
                     drawAvatar();
                 }
-                else if (info.Key == ConsoleKey.Enter) { resizeWatcher.Abort(); Console.Clear(); return avatars[select]; }
+                else if (info.Key == ConsoleKey.Enter) { resizeWatcher.Abort(); Console.Clear(); avatarIndex = select;  return avatars[select]; }
             }
         }
+        public static void Die()
+        {
+            die = true;
+            avatarIndex = -1;
 
+            Console.Clear();
+            new ConsoleText(0, 1, Console.WindowWidth, 1, "Вы умерли", center: true);
+            new ConsoleText(0, 3, Console.WindowWidth, 3, "Нажмите пробел, чтобы начать заново", center: true);
+
+            ConsoleKeyInfo info;
+            do info = Console.ReadKey(true); while (info.Key != ConsoleKey.Spacebar);
+
+            Console.Clear();
+            Settings.Default.Reset();
+            Settings.Default.Save();
+            Main(new string[] { });
+        }
         public static bool ConsoleEventCallback(CtrlType sig)
         {
             switch (sig)
@@ -619,8 +633,16 @@ namespace tamagotchi
                 case CtrlType.CTRL_SHUTDOWN_EVENT:
                 case CtrlType.CTRL_CLOSE_EVENT:
                     {
-                        //SetConsoleMode(GetStdHandle((int)StdHandle.STD_INPUT_HANDLE), saveConsoleMode);
-                        //helper.mb("closing...");
+                        Settings.Default.avatar = die ? -1 : avatarIndex;
+                        Settings.Default.balance = balance;
+                        Settings.Default.health = health;
+                        Settings.Default.satiety = satiety;
+                        Settings.Default.joy = joy;
+                        Settings.Default.fatigue = fatigue;
+                        Settings.Default.disease = disease;
+
+                        Properties.Settings.Default.Save();
+                        //helper.mb("saved");
                     }
                     return false;
                 default:
